@@ -34,7 +34,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          uv run pyinstaller build/echolure.spec --distpath dist/windows-x64
+          uv run pyinstaller release/echolure.spec --distpath dist/windows-x64
 
       - name: Package
         run: |
@@ -73,7 +73,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          uv run pyinstaller build/echolure.spec --distpath dist/windows-arm64
+          uv run pyinstaller release/echolure.spec --distpath dist/windows-arm64
 
       - name: Package
         run: |
@@ -111,7 +111,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          uv run pyinstaller build/echolure.spec --distpath dist/macos-arm64
+          uv run pyinstaller release/echolure.spec --distpath dist/macos-arm64
 
       - name: Package
         run: |
@@ -154,7 +154,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          uv run pyinstaller build/echolure.spec --distpath dist/linux-x64
+          uv run pyinstaller release/echolure.spec --distpath dist/linux-x64
 
       - name: Package
         run: |
@@ -197,7 +197,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          uv run pyinstaller build/echolure.spec --distpath dist/linux-arm64
+          uv run pyinstaller release/echolure.spec --distpath dist/linux-arm64
 
       - name: Package
         run: |
