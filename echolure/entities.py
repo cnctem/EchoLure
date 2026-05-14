@@ -392,41 +392,46 @@ class PowerUp:
         rect = text.get_rect(center=(int(self.x), int(y)))
         screen.blit(text, rect)
     
-    def check_collision(self, x: float, y: float, radius: float) -> bool:
-        dist = math.hypot(self.x - x, self.y - y)
-        return dist < self.radius + radius
+    def check_hit(self, proj_x: float, proj_y: float, proj_radius: float) -> bool:
+        """检查是否被炮弹击中"""
+        dist = math.hypot(self.x - proj_x, self.y - proj_y)
+        return dist < self.radius + proj_radius
 
 
 class Turret:
     """炮台类"""
-    
+
     def __init__(self, x: float, y: float):
         self.x = x
         self.y = y
         self.radius = TURRET_RADIUS
         self.angle = 0
-        
+
         # 声呐充能
         self.sonar_cooldown = SONAR_COOLDOWN
         self.sonar_timer = 0.0
         self.sonar_charging = True
-        
+
         # 道具
         self.current_powerup = None
-        
+
         # 噪音干扰
         self.noise_jammed = False
         self.noise_timer = 0.0
-        
+
         # 连射计数
         self.miss_streak = 0
-        
+
+        # 炮弹充能槽
+        self.energy_slots = ENERGY_MAX_SLOTS
+        self.energy_regen_timer = 0.0
+
     def update(self, dt: float, mouse_pos: Tuple[int, int]):
         # 更新角度
         dx = mouse_pos[0] - self.x
         dy = mouse_pos[1] - self.y
         self.angle = math.atan2(dy, dx)
-        
+
         # 噪音干扰
         if self.noise_jammed:
             self.noise_timer -= dt
@@ -434,13 +439,32 @@ class Turret:
                 self.noise_jammed = False
                 self.sonar_timer = 0  # 重置充能
             return
-        
+
         # 声呐充能
         if self.sonar_charging:
             self.sonar_timer += dt
             if self.sonar_timer >= self.sonar_cooldown:
                 self.sonar_timer = self.sonar_cooldown
                 self.sonar_charging = False
+
+        # 炮弹充能槽恢复
+        if self.energy_slots < ENERGY_MAX_SLOTS:
+            self.energy_regen_timer += dt
+            if self.energy_regen_timer >= 1.0 / ENERGY_REGEN_RATE:
+                self.energy_slots += 1
+                self.energy_regen_timer = 0.0
+
+    def can_fire(self) -> bool:
+        """检查是否有足够能量发射炮弹"""
+        return self.energy_slots >= ENERGY_SHOOT_COST
+
+    def consume_energy(self) -> bool:
+        """消耗能量发射炮弹，返回是否成功"""
+        if self.can_fire():
+            self.energy_slots -= ENERGY_SHOOT_COST
+            self.energy_regen_timer = 0.0
+            return True
+        return False
     
     def can_fire_sonar(self) -> bool:
         return not self.sonar_charging and not self.noise_jammed
@@ -503,3 +527,44 @@ class Turret:
                 f"道具: {self.current_powerup.value}", True, GOLD)
             rect = power_text.get_rect(center=(int(self.x), int(self.y) - 40))
             screen.blit(power_text, rect)
+
+    def draw_energy_bar(self, screen: pygame.Surface, font):
+        """在屏幕底部绘制炮弹充能槽"""
+        bar_y = SCREEN_HEIGHT - 40
+        slot_width = 40
+        slot_height = 20
+        slot_gap = 8
+        total_width = ENERGY_MAX_SLOTS * slot_width + (ENERGY_MAX_SLOTS - 1) * slot_gap
+        start_x = (SCREEN_WIDTH - total_width) // 2
+
+        # 绘制背景槽
+        for i in range(ENERGY_MAX_SLOTS):
+            x = start_x + i * (slot_width + slot_gap)
+            rect = pygame.Rect(x, bar_y, slot_width, slot_height)
+            pygame.draw.rect(screen, (*GRAY, 80), rect, border_radius=4)
+            pygame.draw.rect(screen, (*LIGHT_GRAY, 120), rect, width=2, border_radius=4)
+
+        # 绘制已充能的槽
+        for i in range(self.energy_slots):
+            x = start_x + i * (slot_width + slot_gap)
+            rect = pygame.Rect(x, bar_y, slot_width, slot_height)
+            # 充能颜色：满格为亮青色，不满为暗青色
+            fill_color = CYAN if i < self.energy_slots else (*DARK_CYAN, 150)
+            pygame.draw.rect(screen, fill_color, rect, border_radius=4)
+            # 高光效果
+            highlight = pygame.Rect(x + 2, bar_y + 2, slot_width - 4, slot_height // 2 - 2)
+            pygame.draw.rect(screen, (*WHITE, 60), highlight, border_radius=2)
+
+        # 绘制充能进度（当前正在恢复的槽）
+        if self.energy_slots < ENERGY_MAX_SLOTS:
+            x = start_x + self.energy_slots * (slot_width + slot_gap)
+            rect = pygame.Rect(x, bar_y, slot_width, slot_height)
+            fill_width = int(slot_width * self.energy_regen_timer * ENERGY_REGEN_RATE)
+            if fill_width > 0:
+                fill_rect = pygame.Rect(x, bar_y, fill_width, slot_height)
+                pygame.draw.rect(screen, (*DARK_CYAN, 180), fill_rect, border_radius=4)
+
+        # 标签
+        label = font.render("炮弹能量", True, LIGHT_GRAY)
+        label_rect = label.get_rect(center=(SCREEN_WIDTH // 2, bar_y - 15))
+        screen.blit(label, label_rect)

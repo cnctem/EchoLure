@@ -188,20 +188,24 @@ class Game:
     
     def fire_projectile(self):
         """发射炮弹"""
+        # 检查能量是否足够
+        if not self.turret.consume_energy():
+            return
+
         has_sticky = self.turret.current_powerup and self.turret.current_powerup.name == "STICKY_BEACON"
         has_ricochet = self.turret.current_powerup and self.turret.current_powerup.name == "RICOCHET_CORE"
-        
+
         if has_sticky:
             self.turret.current_powerup = None
             self.powerup_activated_messages.append(("黏着信标已触发!", 2.0))
         elif has_ricochet:
             self.turret.current_powerup = None
             self.powerup_activated_messages.append(("跳弹散芯已触发!", 2.0))
-        
-        proj = Projectile(self.turret.x, self.turret.y, self.turret.angle, 
+
+        proj = Projectile(self.turret.x, self.turret.y, self.turret.angle,
                          has_sticky=has_sticky, has_ricochet=has_ricochet)
         self.projectiles.append(proj)
-        
+
         if self.has_sound:
             self.shoot_sound.play()
     
@@ -267,35 +271,47 @@ class Game:
         
         for powerup in self.powerups:
             powerup.update(dt)
-            
-            # 检查拾取
-            if powerup.active and powerup.check_collision(self.turret.x, self.turret.y, self.turret.radius):
-                powerup.active = False
-                self.turret.current_powerup = powerup.type
-                if self.has_sound:
-                    self.powerup_sound.play()
-        
+
         self.powerups = [p for p in self.powerups if p.active]
-        
-        # 炮弹与目标碰撞检测
+
+        # 炮弹与目标/道具碰撞检测
         hit_any = False
         for proj in self.projectiles:
             if not proj.active:
                 continue
-            
+
+            # 先检查是否击中道具（道具判定优先）
+            hit_powerup = False
+            for powerup in self.powerups:
+                if not powerup.active:
+                    continue
+                if powerup.check_hit(proj.x, proj.y, proj.radius):
+                    # 炮弹击中道具！
+                    hit_powerup = True
+                    powerup.active = False
+                    self.turret.current_powerup = powerup.type
+                    self.powerup_activated_messages.append((f"获得: {powerup.type.value}!", 2.0))
+                    if self.has_sound:
+                        self.powerup_sound.play()
+                    break
+
+            if hit_powerup:
+                proj.active = False
+                continue
+
             for target in self.targets:
                 if target.dead:
                     continue
-                
+
                 dist = math.hypot(proj.x - target.x, proj.y - target.y)
                 if dist < proj.radius + target.radius:
                     # 命中！
                     hit_any = True
                     proj.active = False
-                    
+
                     # 检查是否显形
                     revealed = target.is_revealed()
-                    
+
                     if revealed:
                         # 黏着信标效果
                         if proj.has_sticky:
@@ -304,12 +320,12 @@ class Game:
                         else:
                             # 击杀
                             target.dead = True
-                            
+
                             # 计分
                             points = SCORE_KILL
                             message = "击杀"
                             color = WHITE
-                            
+
                             # 检查是否盲狙
                             if not target.visible and target.beacon_timer > 0:
                                 # 这是信标击杀，不算盲狙
@@ -318,13 +334,13 @@ class Game:
                                 points = SCORE_BLINDSHOT
                                 message = "盲狙!"
                                 color = GOLD
-                            
+
                             # 检查极速反应
                             reaction_time = (pygame.time.get_ticks() / 1000.0) - self.last_window_time
                             if reaction_time <= 1.0 and target.visible:
                                 points += SCORE_QUICK_BONUS
                                 message += " 极速!"
-                            
+
                             # 窗口连击
                             if target.visible:
                                 self.window_kills += 1
@@ -332,9 +348,9 @@ class Game:
                                     combo_points = SCORE_COMBO_BASE * (self.window_kills - 1)
                                     points += combo_points
                                     message += f" 连击x{self.window_kills}!"
-                            
+
                             self.add_score(points, message, color)
-                            
+
                             if self.has_sound:
                                 self.hit_sound.play()
                     else:
@@ -444,11 +460,9 @@ class Game:
                 hint = self.font_small.render("下一次炮弹反弹后分裂为3发", True, (*GRAY, 200))
             self.screen.blit(hint, (20, SCREEN_HEIGHT - 35))
         
-        # 绘制操作提示
-        hint_surf = self.font_small.render("鼠标瞄准 | 空格射击 | 触碰金色光球拾取道具", True, GRAY)
-        hint_surf.set_alpha(150)
-        self.screen.blit(hint_surf, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT - 30))
-        
+        # 绘制炮弹充能槽
+        self.turret.draw_energy_bar(self.screen, self.font_small)
+
         pygame.display.flip()
     
     def handle_events(self):
@@ -461,13 +475,108 @@ class Game:
                 elif event.key == pygame.K_ESCAPE:
                     self.running = False
     
+    def draw_title_screen(self):
+        """绘制启动页"""
+        self.screen.fill(DARK_BLUE)
+
+        # 绘制网格背景
+        grid_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for i in range(0, SCREEN_WIDTH, 50):
+            pygame.draw.line(grid_surf, (*GRAY, 20), (i, 0), (i, SCREEN_HEIGHT), 1)
+        for i in range(0, SCREEN_HEIGHT, 50):
+            pygame.draw.line(grid_surf, (*GRAY, 20), (0, i), (SCREEN_WIDTH, i), 1)
+        self.screen.blit(grid_surf, (0, 0))
+
+        # 标题
+        title = self.font_large.render("回声定位炮", True, CYAN)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 120))
+        self.screen.blit(title, title_rect)
+
+        subtitle = self.font_medium.render("EchoLure", True, LIGHT_GRAY)
+        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH // 2, 170))
+        self.screen.blit(subtitle, subtitle_rect)
+
+        # 核心规则说明
+        rules = [
+            ("核心规则", WHITE, 240),
+            ("", None, 0),
+            ("• 目标处于量子隐形状态，肉眼不可见", LIGHT_GRAY, 280),
+            ("• 声呐每4秒自动充能，向鼠标方向发射扇形探测波", LIGHT_GRAY, 310),
+            ("• 被声呐扫到的目标会短暂显形2.5秒", LIGHT_GRAY, 340),
+            ("• 未显形的目标炮弹直接穿过，无法造成伤害", LIGHT_GRAY, 370),
+            ("", None, 0),
+            ("操作方式", WHITE, 420),
+            ("", None, 0),
+            ("• 鼠标移动：控制炮台瞄准方向", LIGHT_GRAY, 460),
+            ("• 空格：发射炮弹（消耗1格能量）", LIGHT_GRAY, 490),
+            ("• 能量槽共5格，每秒恢复1格", LIGHT_GRAY, 520),
+            ("", None, 0),
+            ("道具系统", WHITE, 570),
+            ("", None, 0),
+            ("• 射击金色光球获取道具，最多持有1个", LIGHT_GRAY, 610),
+            ("• 全频扫描：下一次声呐变为360°全屏扫描", LIGHT_GRAY, 640),
+            ("• 黏着信标：下一次命中标记目标6秒", LIGHT_GRAY, 670),
+            ("• 跳弹散芯：下一次反弹后分裂为3发弹片", LIGHT_GRAY, 700),
+        ]
+
+        for text, color, y in rules:
+            if color is not None:
+                surf = self.font_small.render(text, True, color)
+                rect = surf.get_rect(center=(SCREEN_WIDTH // 2, y))
+                self.screen.blit(surf, rect)
+
+        # Start 按钮
+        button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT - 100, 160, 50)
+        mouse_pos = pygame.mouse.get_pos()
+        button_hover = button_rect.collidepoint(mouse_pos)
+
+        button_color = CYAN if button_hover else DARK_CYAN
+        pygame.draw.rect(self.screen, button_color, button_rect, border_radius=8)
+        pygame.draw.rect(self.screen, WHITE, button_rect, width=2, border_radius=8)
+
+        start_text = self.font_medium.render("START", True, WHITE)
+        start_rect = start_text.get_rect(center=button_rect.center)
+        self.screen.blit(start_text, start_rect)
+
+        pygame.display.flip()
+        return button_rect
+
+    def run_title_screen(self):
+        """运行启动页"""
+        in_title = True
+        while in_title and self.running:
+            dt = self.clock.tick(FPS) / 1000.0
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    in_title = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                        in_title = False
+                    elif event.key == pygame.K_SPACE:
+                        in_title = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        button_rect = self.draw_title_screen()
+                        if button_rect.collidepoint(event.pos):
+                            in_title = False
+
+            if in_title:
+                self.draw_title_screen()
+
     def run(self):
+        # 显示启动页
+        self.run_title_screen()
+
+        # 主游戏循环
         while self.running:
             dt = self.clock.tick(FPS) / 1000.0
-            
+
             self.handle_events()
             self.update(dt)
             self.draw()
-        
+
         pygame.quit()
         sys.exit()
