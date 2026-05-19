@@ -120,20 +120,20 @@ jobs:
 
       - name: Patch spec for macOS bundle icon
         run: |
-          python3 -c "
-with open('release/echolure.spec') as f:
-    content = f.read()
-content = content.replace(
-    \"(os.path.join(project_path, 'echolure'), 'echolure'),\n        (os.path.join(project_path, 'asset'), 'asset'),\",
-    \"(os.path.join(project_path, 'echolure'), 'echolure'),\n        (os.path.join(project_path, 'asset'), 'asset'),\n        (os.path.join(project_path, 'asset', 'icon.icns'), 'asset'),\"
-)
-content = content.replace(
-    \"app = BUNDLE(\n    exe,\n    name='EchoLure.app',\n    icon=None,\",
-    \"app = BUNDLE(\n    exe,\n    name='EchoLure.app',\n    icon=os.path.join('asset', 'icon.icns'),\"
-)
-with open('release/echolure.spec', 'w') as f:
-    f.write(content)
-"
+          python3 << 'PYEOF'
+          with open('release/echolure.spec') as f:
+              content = f.read()
+          content = content.replace(
+              "(os.path.join(project_path, 'echolure'), 'echolure'),\n        (os.path.join(project_path, 'asset'), 'asset'),",
+              "(os.path.join(project_path, 'echolure'), 'echolure'),\n        (os.path.join(project_path, 'asset'), 'asset'),\n        (os.path.join(project_path, 'asset', 'icon.icns'), 'asset'),"
+          )
+          content = content.replace(
+              "app = BUNDLE(\n    exe,\n    name='EchoLure.app',\n    icon=None,",
+              "app = BUNDLE(\n    exe,\n    name='EchoLure.app',\n    icon=os.path.join('asset', 'icon.icns'),"
+          )
+          with open('release/echolure.spec', 'w') as f:
+              f.write(content)
+          PYEOF
 
       - name: Build with PyInstaller
         run: |
