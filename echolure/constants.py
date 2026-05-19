@@ -1,5 +1,8 @@
 """回声定位炮 - EchoLure 游戏常量与配置"""
 
+import os
+import sys
+
 # 屏幕设置
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
@@ -70,7 +73,13 @@ NOISE_JAM_THRESHOLD = 3
 NOISE_JAM_DURATION = 2.0
 
 # 字体设置（按优先级排序）
+def _get_font_path(filename):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, filename)
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), filename)
+
 FONT_PATHS = [
+    _get_font_path('DinkieBitmap.ttf'),
     "/Users/a11111/Library/Fonts/阿里巴巴普惠体 R.otf",
     "/System/Library/Fonts/Hiragino Sans GB.ttc",
     "/System/Library/Fonts/STHeiti Medium.ttc",
