@@ -1,8 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
+import platform
 
 project_path = os.path.abspath('.')
+
+system = platform.system()
+ICON_EXE = os.path.join('asset', 'icon.png')
+ICON_BUNDLE = None
+if system == 'Windows':
+    ICON_EXE = os.path.join('asset', 'icon.ico')
+elif system == 'Darwin':
+    ICON_BUNDLE = os.path.join('asset', 'icon.icns')
 
 a = Analysis(
     [os.path.join(project_path, 'release', 'run.py')],
@@ -56,13 +65,13 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=os.path.join('asset', 'icon.png'),
+    icon=ICON_EXE,
 )
 
 # macOS App Bundle
 app = BUNDLE(
     exe,
     name='EchoLure.app',
-    icon=None,
+    icon=ICON_BUNDLE,
     bundle_identifier='com.echolure.game',
 )
