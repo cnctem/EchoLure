@@ -8,6 +8,7 @@ import numpy as np
 from typing import List, Tuple
 
 from .constants import *
+from .constants import _get_asset_path
 from .entities import Target, SonarWave, Projectile, PowerUp, Turret, draw_glow
 
 
@@ -20,6 +21,11 @@ class Game:
         
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("回声定位炮 - EchoLure")
+        try:
+            icon = pygame.image.load(_get_asset_path('icon.png'))
+            pygame.display.set_icon(icon)
+        except:
+            pass
         self.clock = pygame.time.Clock()
         self.running = True
         

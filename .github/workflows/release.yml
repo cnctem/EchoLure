@@ -109,6 +109,32 @@ jobs:
       - name: Install PyInstaller
         run: uv pip install pyinstaller
 
+      - name: Prepare macOS app icon
+        run: |
+          mkdir -p icon.iconset
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size asset/icon.png --out icon.iconset/icon_${size}x${size}.png
+          done
+          sips -z 1024 1024 asset/icon.png --out icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset -o asset/icon.icns
+
+      - name: Patch spec for macOS bundle icon
+        run: |
+          python3 -c "
+with open('release/echolure.spec') as f:
+    content = f.read()
+content = content.replace(
+    \"(os.path.join(project_path, 'echolure'), 'echolure'),\n        (os.path.join(project_path, 'asset'), 'asset'),\",
+    \"(os.path.join(project_path, 'echolure'), 'echolure'),\n        (os.path.join(project_path, 'asset'), 'asset'),\n        (os.path.join(project_path, 'asset', 'icon.icns'), 'asset'),\"
+)
+content = content.replace(
+    \"app = BUNDLE(\n    exe,\n    name='EchoLure.app',\n    icon=None,\",
+    \"app = BUNDLE(\n    exe,\n    name='EchoLure.app',\n    icon=os.path.join('asset', 'icon.icns'),\"
+)
+with open('release/echolure.spec', 'w') as f:
+    f.write(content)
+"
+
       - name: Build with PyInstaller
         run: |
           uv run pyinstaller release/echolure.spec --distpath dist/macos-arm64

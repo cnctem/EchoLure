@@ -10,7 +10,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (os.path.join(project_path, 'echolure'), 'echolure'),
-        (os.path.join(project_path, 'DinkieBitmap.ttf'), '.'),
+        (os.path.join(project_path, 'asset'), 'asset'),
     ],
     hiddenimports=[
         'numpy',
@@ -56,7 +56,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=os.path.join('asset', 'icon.png'),
 )
 
 # macOS App Bundle
