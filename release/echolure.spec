@@ -10,7 +10,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (os.path.join(project_path, 'echolure'), 'echolure'),
-        (os.path.join(project_path, 'DinkieBitmap.ttf'), '.'),
+        (os.path.join(project_path, 'asset'), 'asset'),
     ],
     hiddenimports=[
         'numpy',
