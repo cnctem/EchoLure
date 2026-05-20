@@ -23,7 +23,7 @@ LIGHT_GRAY = (180, 180, 180)
 
 # 声呐设置
 SONAR_COOLDOWN = 4.0
-SONAR_REVEAL_DURATION = 2.5
+SONAR_REVEAL_DURATION = 0.5
 SONAR_WIDEBAND_REVEAL_DURATION = 4.0
 SONAR_MAX_RADIUS = 800  # 普通声呐最远距离
 SONAR_WIDEBAND_MAX_RADIUS = 1000  # 全频扫描最远距离
@@ -79,7 +79,7 @@ def _get_asset_path(filename):
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'asset', filename)
 
 FONT_PATHS = [
-    _get_asset_path('DinkieBitmap.ttf'),
+    _get_asset_path('SmileySans-Oblique.ttf'),
     "/Users/a11111/Library/Fonts/阿里巴巴普惠体 R.otf",
     "/System/Library/Fonts/Hiragino Sans GB.ttc",
     "/System/Library/Fonts/STHeiti Medium.ttc",
