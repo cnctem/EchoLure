@@ -26,24 +26,6 @@ class Game:
         # 初始化字体
         self._init_fonts()
         
-        # 游戏对象
-        self.turret = Turret(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        self.targets: List[Target] = []
-        self.projectiles: List[Projectile] = []
-        self.sonar_waves: List[SonarWave] = []
-        self.powerups: List[PowerUp] = []
-        
-        # 游戏状态
-        self.score = 0
-        self.total_score = 0
-        self.window_kills = 0  # 当前窗口期击杀数
-        self.last_window_time = 0.0
-        self.difficulty_level = 0
-        self.target_base_speed = TARGET_BASE_SPEED
-        
-        # 生成初始目标
-        self.spawn_initial_targets()
-        
         # 音效
         self.has_sound = False
         try:
@@ -55,16 +37,40 @@ class Game:
         except:
             pass
         
-        # 道具生成计时器
+        self.reset_game()
+    
+    def reset_game(self):
+        """重置游戏状态（新游戏/重新开始）"""
+        self.turret = Turret(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        self.targets: List[Target] = []
+        self.projectiles: List[Projectile] = []
+        self.sonar_waves: List[SonarWave] = []
+        self.powerups: List[PowerUp] = []
+
+        self.score = 0
+        self.total_score = 0
+        self.window_kills = 0
+        self.last_window_time = 0.0
+        self.difficulty_level = 0
+        self.target_base_speed = TARGET_BASE_SPEED
+
+        self.spawn_initial_targets()
+
         self.powerup_spawn_timer = 0.0
         self.powerup_spawn_interval = POWERUP_SPAWN_INTERVAL
-        
-        # 击杀信息
+
         self.kill_messages: List[Tuple[str, float, Tuple[int, int, int]]] = []
-        
-        # 道具触发反馈
         self.powerup_activated_messages: List[Tuple[str, float]] = []
-    
+
+        # 计时与结束
+        self.game_timer = 0.0
+        self.game_over = False
+
+        # 统计信息
+        self.total_kills = 0
+        self.blind_shots = 0
+        self.max_combo = 0
+
     def _init_fonts(self):
         """初始化字体"""
         self.font_large = None
@@ -220,6 +226,11 @@ class Game:
         self.update_difficulty()
     
     def update(self, dt: float):
+        self.game_timer += dt
+        if self.game_timer >= GAME_DURATION:
+            self.game_over = True
+            return
+
         mouse_pos = pygame.mouse.get_pos()
         
         # 更新炮台
@@ -320,6 +331,7 @@ class Game:
                         else:
                             # 击杀
                             target.dead = True
+                            self.total_kills += 1
 
                             # 计分
                             points = SCORE_KILL
@@ -334,6 +346,7 @@ class Game:
                                 points = SCORE_BLINDSHOT
                                 message = "盲狙!"
                                 color = GOLD
+                                self.blind_shots += 1
 
                             # 检查极速反应
                             reaction_time = (pygame.time.get_ticks() / 1000.0) - self.last_window_time
@@ -344,6 +357,8 @@ class Game:
                             # 窗口连击
                             if target.visible:
                                 self.window_kills += 1
+                                if self.window_kills > self.max_combo:
+                                    self.max_combo = self.window_kills
                                 if self.window_kills > 1:
                                     combo_points = SCORE_COMBO_BASE * (self.window_kills - 1)
                                     points += combo_points
@@ -420,6 +435,13 @@ class Game:
         # 绘制炮台
         self.turret.draw(self.screen, self.font_small)
         
+        # 绘制倒计时
+        remaining = max(0, GAME_DURATION - self.game_timer)
+        time_text = self.font_medium.render(
+            f"剩余时间: {int(remaining // 60)}:{int(remaining % 60):02d}", True, CYAN)
+        time_rect = time_text.get_rect(center=(SCREEN_WIDTH // 2, 25))
+        self.screen.blit(time_text, time_rect)
+
         # 绘制分数
         score_text = self.font_large.render(f"分数: {self.score}", True, WHITE)
         self.screen.blit(score_text, (SCREEN_WIDTH - 280, 20))
@@ -544,6 +566,62 @@ class Game:
         pygame.display.flip()
         return button_rect
 
+    def draw_game_over_screen(self):
+        """绘制结束页"""
+        self.screen.fill(DARK_BLUE)
+
+        # 绘制网格背景
+        grid_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for i in range(0, SCREEN_WIDTH, 50):
+            pygame.draw.line(grid_surf, (*GRAY, 20), (i, 0), (i, SCREEN_HEIGHT), 1)
+        for i in range(0, SCREEN_HEIGHT, 50):
+            pygame.draw.line(grid_surf, (*GRAY, 20), (0, i), (SCREEN_WIDTH, i), 1)
+        self.screen.blit(grid_surf, (0, 0))
+
+        # 标题
+        title = self.font_large.render("GAME OVER", True, CYAN)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH // 2, 80))
+        self.screen.blit(title, title_rect)
+
+        subtitle = self.font_medium.render("游戏结束", True, LIGHT_GRAY)
+        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH // 2, 120))
+        self.screen.blit(subtitle, subtitle_rect)
+
+        # 分隔线
+        pygame.draw.line(self.screen, (*CYAN, 80),
+                        (SCREEN_WIDTH // 2 - 200, 150),
+                        (SCREEN_WIDTH // 2 + 200, 150), 2)
+
+        # 最终分数（突出显示）
+        score_text = self.font_large.render(f"最终分数: {self.score}", True, GOLD)
+        score_rect = score_text.get_rect(center=(SCREEN_WIDTH // 2, 210))
+        self.screen.blit(score_text, score_rect)
+
+        # 统计信息
+        stats = [
+            (f"击杀目标: {self.total_kills}", WHITE, 280),
+            (f"盲狙: {self.blind_shots}", WHITE, 320),
+            (f"最大连击: {self.max_combo}", WHITE, 360),
+            (f"难度等级: {self.difficulty_level}", WHITE, 400),
+            (f"存活时间: {GAME_DURATION:.0f}秒", WHITE, 440),
+        ]
+
+        for text, color, y in stats:
+            surf = self.font_medium.render(text, True, color)
+            rect = surf.get_rect(center=(SCREEN_WIDTH // 2, y))
+            self.screen.blit(surf, rect)
+
+        # 操作提示
+        restart_text = self.font_small.render("按 空格键 重新开始", True, LIGHT_GRAY)
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 120))
+        self.screen.blit(restart_text, restart_rect)
+
+        quit_text = self.font_small.render("按 ESC 退出游戏", True, LIGHT_GRAY)
+        quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 85))
+        self.screen.blit(quit_text, quit_rect)
+
+        pygame.display.flip()
+
     def run_title_screen(self):
         """运行启动页"""
         in_title = True
@@ -569,17 +647,43 @@ class Game:
             if in_title:
                 self.draw_title_screen()
 
-    def run(self):
-        # 显示启动页
-        self.run_title_screen()
-
-        # 主游戏循环
-        while self.running:
+    def run_game_over_screen(self):
+        """运行结束页"""
+        while self.game_over and self.running:
             dt = self.clock.tick(FPS) / 1000.0
 
-            self.handle_events()
-            self.update(dt)
-            self.draw()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        self.game_over = False
+                    elif event.key == pygame.K_ESCAPE:
+                        self.running = False
+
+            self.draw_game_over_screen()
+
+    def run(self):
+        while self.running:
+            # 显示启动页
+            self.run_title_screen()
+            if not self.running:
+                break
+
+            # 重置游戏
+            self.reset_game()
+
+            # 主游戏循环
+            while self.running and not self.game_over:
+                dt = self.clock.tick(FPS) / 1000.0
+
+                self.handle_events()
+                self.update(dt)
+                self.draw()
+
+            # 显示结束页
+            if self.game_over:
+                self.run_game_over_screen()
 
         pygame.quit()
         sys.exit()
